@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ms">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sistem Analisis Markah STPM</title>
+    <meta
+      name="description"
+      content="Input gred, analisis kelas, analisis subjek, analisis individu dan sasaran STPM."
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f4c5c'/%3E%3Cpath d='M14 17h36v7H14zM14 29h27v7H14zM14 41h20v7H14z' fill='%23f8d57e'/%3E%3Cpath d='M43 30l5 5 8-11' fill='none' stroke='%23ffffff' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <header class="app-header no-print">
+      <div>
+        <p class="eyebrow">STPM</p>
+        <h1>Sistem Analisis Markah</h1>
+      </div>
+      <div class="header-actions">
+        <button class="ghost" id="reloadDataBtn" type="button">Muat Semula Murid</button>
+        <button class="ghost" id="exportBtn" type="button">Eksport Data</button>
+        <label class="ghost file-button">
+          Import Data
+          <input id="importInput" type="file" accept="application/json" />
+        </label>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <nav class="tabs no-print" aria-label="Tab utama">
+        <button class="tab active" data-tab="input" type="button">Input Markah</button>
+        <button class="tab" data-tab="class" type="button">Analisis Kelas</button>
+        <button class="tab" data-tab="subject" type="button">Analisis Subjek</button>
+        <button class="tab" data-tab="individual" type="button">Analisis Individu</button>
+        <button class="tab" data-tab="target" type="button">Sasaran STPM</button>
+        <button class="tab" data-tab="final" type="button">Keputusan Akhir</button>
+      </nav>
+
+      <section class="status-strip no-print" id="statusStrip">
+        <span id="dataStatus">Memuatkan data murid...</span>
+        <span id="saveStatus">Data gred disimpan automatik.</span>
+      </section>
+
+      <section class="panel active" id="tab-input">
+        <div class="toolbar no-print">
+          <label>
+            Kelas
+            <select id="inputClass"></select>
+          </label>
+          <label>
+            Subjek
+            <select id="inputSubject"></select>
+          </label>
+          <label>
+            Pentaksiran
+            <select id="inputAssessment"></select>
+          </label>
+          <button class="primary" id="saveInputBtn" type="button">Simpan</button>
+        </div>
+        <div class="summary-grid no-print" id="inputSummary"></div>
+        <div class="table-wrap">
+          <table class="data-table input-table">
+            <thead>
+              <tr>
+                <th>Bil.</th>
+                <th>Nama Murid</th>
+                <th>Gred</th>
+                <th>Nilai Gred</th>
+              </tr>
+            </thead>
+            <tbody id="inputRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel report-panel" id="tab-class">
+        <div class="toolbar no-print">
+          <label>
+            Kelas
+            <select id="classClass"></select>
+          </label>
+          <label>
+            Pentaksiran
+            <select id="classAssessment"></select>
+          </label>
+          <button class="primary" id="printClassBtn" type="button">Cetak Laporan</button>
+        </div>
+        <div class="print-card" id="classReport">
+          <h2 id="classTitle">Keputusan Peperiksaan STPM</h2>
+          <div class="summary-grid compact" id="classSummary"></div>
+          <div class="table-wrap print-table-wrap">
+            <table class="data-table report-table">
+              <thead id="classHead"></thead>
+              <tbody id="classRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel report-panel" id="tab-subject">
+        <div class="toolbar no-print">
+          <label>
+            Pentaksiran
+            <select id="subjectAssessment"></select>
+          </label>
+          <label>
+            Kelas
+            <select id="subjectClass"></select>
+          </label>
+          <label>
+            Subjek
+            <select id="subjectSubject"></select>
+          </label>
+          <button class="primary" id="printSubjectBtn" type="button">Cetak Analisis</button>
+        </div>
+        <div class="print-card" id="subjectReport">
+          <h2 id="subjectTitle">Analisis Subjek</h2>
+          <div class="summary-grid" id="subjectSummary"></div>
+          <div class="chart-card no-print-printable">
+            <div class="bar-chart" id="gradeChart" aria-label="Carta taburan gred"></div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Gred</th>
+                  <th>Bilangan</th>
+                  <th>Nilai Gred</th>
+                  <th>Gred Purata</th>
+                </tr>
+              </thead>
+              <tbody id="subjectRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel report-panel" id="tab-individual">
+        <div class="toolbar no-print">
+          <label>
+            Aliran
+            <select id="individualStream"></select>
+          </label>
+          <label>
+            Pentaksiran
+            <select id="individualAssessment"></select>
+          </label>
+          <button class="primary" id="printIndividualBtn" type="button">Cetak Individu</button>
+        </div>
+        <div class="print-card" id="individualReport">
+          <h2 id="individualTitle">Analisis Individu</h2>
+          <div class="summary-grid compact" id="individualSummary"></div>
+          <div class="table-wrap">
+            <table class="data-table individual-table">
+              <thead id="individualHead">
+                <tr>
+                  <th>Bil.</th>
+                  <th>Kelas</th>
+                  <th>Nama Murid</th>
+                  <th>PNGK</th>
+                </tr>
+              </thead>
+              <tbody id="individualRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel report-panel" id="tab-target">
+        <div class="toolbar no-print">
+          <label>
+            Aliran
+            <select id="targetStream"></select>
+          </label>
+          <label>
+            Subjek
+            <select id="targetSubject"></select>
+          </label>
+          <button class="ghost" id="fillTargetsBtn" type="button">Isi Dari Gred Sedia Ada</button>
+          <button class="primary" id="printTargetBtn" type="button">Cetak Sasaran</button>
+        </div>
+        <div class="print-card" id="targetReport">
+          <h2 id="targetTitle">Sasaran STPM</h2>
+          <div class="target-note no-print">
+            GP menggunakan nilai terbaik S1/UL1 dan S2/UL2. Subjek PA, GEO dan SEJ mempunyai Kerja Kursus.
+          </div>
+          <div class="table-wrap">
+            <table class="data-table target-table">
+              <thead id="targetHead">
+                <tr>
+                  <th>Bil.</th>
+                  <th>Kelas</th>
+                  <th>Nama Murid</th>
+                  <th>Sem 1</th>
+                  <th>UL 1</th>
+                  <th>Sem 2</th>
+                  <th>UL 2</th>
+                  <th>Sem 3</th>
+                  <th>GP</th>
+                </tr>
+              </thead>
+              <tbody id="targetRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel report-panel" id="tab-final">
+        <div class="toolbar no-print">
+          <label>
+            Aliran
+            <select id="finalStream"></select>
+          </label>
+          <button class="primary" id="printFinalBtn" type="button">Cetak Keputusan</button>
+        </div>
+        <div class="print-card" id="finalReport">
+          <h2 id="finalTitle">Keputusan Akhir</h2>
+          <div class="summary-grid compact" id="finalSummary"></div>
+          <div class="table-wrap">
+            <table class="data-table final-table">
+              <thead id="finalHead">
+                <tr>
+                  <th>Kedudukan</th>
+                  <th>Kelas</th>
+                  <th>Nama Murid</th>
+                  <th>PNGK</th>
+                </tr>
+              </thead>
+              <tbody id="finalRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
