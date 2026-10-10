@@ -36,6 +36,7 @@
         <button class="tab active" data-tab="input" type="button">Input Markah</button>
         <button class="tab" data-tab="class" type="button">Analisis Kelas</button>
         <button class="tab" data-tab="subject" type="button">Analisis Subjek</button>
+        <button class="tab" data-tab="performance" type="button">ANALISIS PRESTASI SUBJEK</button>
         <button class="tab" data-tab="individual" type="button">Analisis Individu</button>
         <button class="tab" data-tab="target" type="button">Sasaran STPM</button>
         <button class="tab" data-tab="final" type="button">Keputusan Akhir</button>
@@ -135,6 +136,30 @@
                 </tr>
               </thead>
               <tbody id="subjectRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel report-panel" id="tab-performance">
+        <div class="toolbar no-print">
+          <label>Aliran / Kelas<select id="performanceScope"></select></label>
+          <label>Subjek<select id="performanceSubject"></select></label>
+          <button class="primary" id="printPerformanceBtn" type="button">Cetak Prestasi</button>
+        </div>
+        <div class="print-card" id="performanceReport">
+          <h2 id="performanceTitle">Analisis Prestasi Subjek</h2>
+          <div class="table-wrap">
+            <table class="data-table performance-trend">
+              <thead><tr><th>Subjek</th><th>GP Sem 1</th><th>GP Sem 2</th><th>GP Sem 3</th><th>Perubahan S1 ke S2</th><th>Perubahan S2 ke S3</th></tr></thead>
+              <tbody id="performanceTrendRows"></tbody>
+            </table>
+          </div>
+          <h3 class="section-heading">Taburan Gred Mengikut Semester</h3>
+          <div class="table-wrap">
+            <table class="data-table performance-table">
+              <thead id="performanceHead"></thead>
+              <tbody id="performanceRows"></tbody>
             </table>
           </div>
         </div>

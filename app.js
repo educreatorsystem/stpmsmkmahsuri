@@ -10,6 +10,13 @@ const assessments = [
   { id: "sem3", label: "STPM SEM 3" },
 ];
 
+const inputAssessments = [
+  ...assessments,
+  { id: "ul1", label: "Ulangan 1" },
+  { id: "ul2", label: "Ulangan 2" },
+  { id: "kk", label: "Kerja Kursus (KK)" },
+];
+
 const subjects = [
   { id: "pa", code: "900", label: "Pengajian Am", short: "P.AM", hasCoursework: true },
   { id: "geo", code: "942", label: "Geografi", short: "GEOG", hasCoursework: true },
@@ -31,13 +38,12 @@ const courseworkSubjects = subjects
   }));
 
 const streams = [
-  { id: "p2", label: "6 ATAS", prefix: "P2" },
-  { id: "p1", label: "6 BAWAH", prefix: "P1" },
+  { id: "p2", label: "PRA-U2/P2", prefix: "P2" },
+  { id: "p1", label: "PRA-U1/P1", prefix: "P1" },
 ];
 
 const finalStreams = [
-  { id: "p2", label: "P2 / 6 ATAS", prefix: "P2" },
-  { id: "p1", label: "P1 / 6 BAWAH", prefix: "P1" },
+  ...streams,
 ];
 
 const gradeScale = [
@@ -129,6 +135,13 @@ function cacheElements() {
     "finalHead",
     "finalRows",
     "printFinalBtn",
+    "performanceScope",
+    "performanceSubject",
+    "performanceTitle",
+    "performanceHead",
+    "performanceRows",
+    "performanceTrendRows",
+    "printPerformanceBtn",
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -153,6 +166,8 @@ function wireEvents() {
     "targetStream",
     "targetSubject",
     "finalStream",
+    "performanceScope",
+    "performanceSubject",
   ].forEach((id) => els[id].addEventListener("change", renderAll));
 
   els.inputAssessment.addEventListener("change", () => {
@@ -176,6 +191,7 @@ function wireEvents() {
   els.printIndividualBtn.addEventListener("click", () => window.print());
   els.printTargetBtn.addEventListener("click", () => window.print());
   els.printFinalBtn.addEventListener("click", () => window.print());
+  els.printPerformanceBtn.addEventListener("click", () => window.print());
   els.fillTargetsBtn.addEventListener("click", fillTargetsFromGrades);
 }
 
@@ -195,10 +211,12 @@ function populateStaticSelects() {
   fillSelect(els.individualStream, streams, (item) => item.label);
   fillSelect(els.targetStream, finalStreams, (item) => item.label);
   fillSelect(els.finalStream, finalStreams, (item) => item.label);
-  fillSelect(els.inputAssessment, assessments, (item) => item.label);
-  fillSelect(els.classAssessment, assessments, (item) => item.label);
+  fillSelect(els.inputAssessment, inputAssessments, (item) => item.label);
+  fillSelect(els.classAssessment, inputAssessments, (item) => item.label);
   fillSelect(els.subjectAssessment, assessments, (item) => item.label);
   fillSelect(els.individualAssessment, assessments, (item) => item.label);
+  populateInputSubjectSelect();
+  fillSelect(els.performanceSubject, [{ id: "all", label: "Semua Subjek" }, ...subjects], (item) => item.label);
 }
 
 function populateInputSubjectSelect() {
@@ -315,6 +333,7 @@ function populateClassSelects() {
     els.classClass,
     els.subjectClass,
   ].forEach((select) => fillSelect(select, classes, (item) => item.label));
+  fillSelect(els.performanceScope, [{ id: "all", label: "Semua Aliran" }, ...streams, ...classes], (item) => item.label);
 }
 
 function fillSelect(select, items, labeler) {
@@ -338,6 +357,57 @@ function renderAll() {
   renderIndividual();
   renderTargets();
   renderFinalResults();
+  renderPerformance();
+}
+
+function renderPerformance() {
+  const scopeId = els.performanceScope.value;
+  const scope = els.performanceScope.selectedOptions[0]?.textContent || "Semua Aliran";
+  const students = scopeId === "all" ? state.students
+    : streams.some((stream) => stream.id === scopeId) ? studentsByStream(scopeId)
+    : studentsByClass(scopeId);
+  const selectedSubjects = els.performanceSubject.value === "all" ? subjects
+    : subjects.filter((subject) => subject.id === els.performanceSubject.value);
+  const grades = gradeScale.filter((item) => item.grade);
+  els.performanceTitle.textContent = `Analisis Prestasi Subjek STPM S1, S2 & S3 - ${scope}`;
+  els.performanceHead.innerHTML = `<tr><th>Kertas</th>
+    ${grades.slice(0, 7).map((item) => `<th>Gred ${item.grade}</th>`).join("")}
+    <th>Lulus Penuh</th>
+    ${grades.slice(7).map((item) => `<th>Gred ${item.grade}</th>`).join("")}
+    <th>Bilangan Calon Hadir</th><th>Gred Purata Kertas (GP)</th></tr>`;
+  const distributionRows = [];
+  const trendRows = [];
+  selectedSubjects.forEach((subject) => {
+    const semesters = assessments.map((assessment) => {
+      const points = students.map((student) => getGrade(student.id, assessment.id, subject.id))
+        .filter((grade) => gradeToPoint(grade) !== null);
+      const counts = Object.fromEntries(grades.map((item) => [item.grade, 0]));
+      points.forEach((grade) => { counts[grade] += 1; });
+      const attended = points.length;
+      const gp = average(points.map(gradeToPoint));
+      const passed = countGrades(counts, grades.slice(0, 7).map((item) => item.grade));
+      const cell = (count) => `<td><strong>${attended ? count : "-"}</strong><small>${attended ? `${((count / attended) * 100).toFixed(2)}%` : "-"}</small></td>`;
+      distributionRows.push(`<tr><th scope="row">${escapeHtml(subject.label)}<small>${assessment.label}${subject.code ? ` (${subject.code})` : ""}</small></th>
+        ${grades.slice(0, 7).map((item) => cell(counts[item.grade])).join("")}
+        ${cell(passed)}${grades.slice(7).map((item) => cell(counts[item.grade])).join("")}
+        <td>${attended}</td><td class="number-cell">${formatPoint(gp)}</td></tr>`);
+      return gp;
+    });
+    distributionRows.push(`<tr class="subject-divider"><td colspan="15"></td></tr>`);
+    trendRows.push(`<tr><th scope="row">${escapeHtml(subject.label)}</th>
+      ${semesters.map((gp) => `<td>${formatPoint(gp)}</td>`).join("")}
+      ${gpChangeCell(semesters[0], semesters[1])}${gpChangeCell(semesters[1], semesters[2])}</tr>`);
+  });
+  els.performanceRows.innerHTML = distributionRows.join("");
+  els.performanceTrendRows.innerHTML = trendRows.join("");
+}
+
+function gpChangeCell(previous, current) {
+  if (previous === null || current === null) return "<td>-</td>";
+  const change = Number((current - previous).toFixed(2));
+  const label = change > 0 ? "Meningkat" : change < 0 ? "Menurun" : "Kekal";
+  const className = change > 0 ? "pass" : change < 0 ? "fail" : "";
+  return `<td class="${className}"><strong>${change > 0 ? "+" : ""}${change.toFixed(2)}</strong><small>${label}</small></td>`;
 }
 
 function renderInput() {
@@ -364,6 +434,7 @@ function renderInput() {
       setGrade(select.dataset.student, assessmentId, subjectId, select.value);
       renderAll();
       persistRecords();
+      persistTargets();
       flashSave("Disimpan automatik.");
     });
   });
@@ -380,7 +451,7 @@ function renderInput() {
 function renderClassAnalysis() {
   const className = els.classClass.value;
   const assessmentId = els.classAssessment.value;
-  const assessment = findById(assessments, assessmentId);
+  const assessment = findById(inputAssessments, assessmentId);
   const visibleSubjects = assessmentSubjects(assessmentId);
   const rows = studentsByClass(className)
     .map((student) => ({ student, pngk: studentPngk(student.id, assessmentId) }))
@@ -682,12 +753,12 @@ function fillTargetsFromGrades() {
   const subject = findById(subjects, subjectId);
   studentsByStream(stream.id).forEach((student) => {
     const target = getTarget(student.id, subjectId);
-    assessments.forEach((assessment) => {
+    inputAssessments.filter((assessment) => assessment.id !== "kk").forEach((assessment) => {
       const grade = getGrade(student.id, assessment.id, subjectId);
       if (grade) target[assessment.id] = grade;
     });
     if (subject.hasCoursework) {
-      const kkGrade = getGrade(student.id, "sem3", `kk_${subjectId}`);
+      const kkGrade = getGrade(student.id, "kk", subjectId);
       if (kkGrade) target.kk = kkGrade;
     }
     setTarget(student.id, subjectId, target);
@@ -738,18 +809,48 @@ function targetGp(target, subjectId) {
 }
 
 function getGrade(studentId, assessmentId, subjectId) {
+  if (assessmentId === "kk" || subjectId.startsWith("kk_")) {
+    const baseId = subjectId.replace(/^kk_/, "");
+    return state.records?.[studentId]?.kk?.[baseId]
+      ?? state.records?.[studentId]?.sem3?.[`kk_${baseId}`] ?? "";
+  }
   return state.records?.[studentId]?.[assessmentId]?.[subjectId] || "";
 }
 
 function setGrade(studentId, assessmentId, subjectId, grade) {
+  if (assessmentId === "kk" || subjectId.startsWith("kk_")) {
+    const baseId = subjectId.replace(/^kk_/, "");
+    state.records[studentId] ||= {};
+    state.records[studentId].kk ||= {};
+    state.records[studentId].sem3 ||= {};
+    if (grade) {
+      state.records[studentId].kk[baseId] = grade;
+      state.records[studentId].sem3[`kk_${baseId}`] = grade;
+    } else {
+      delete state.records[studentId].kk[baseId];
+      delete state.records[studentId].sem3[`kk_${baseId}`];
+    }
+    state.targets[studentId] ||= {};
+    state.targets[studentId][baseId] ||= {};
+    state.targets[studentId][baseId].kk = grade;
+    return;
+  }
   state.records[studentId] ||= {};
   state.records[studentId][assessmentId] ||= {};
   if (grade) state.records[studentId][assessmentId][subjectId] = grade;
   else delete state.records[studentId][assessmentId][subjectId];
+  state.targets[studentId] ||= {};
+  state.targets[studentId][subjectId] ||= {};
+  state.targets[studentId][subjectId][assessmentId] = grade;
 }
 
 function getTarget(studentId, subjectId) {
-  return { ...(state.targets?.[studentId]?.[subjectId] || {}) };
+  const target = { ...(state.targets?.[studentId]?.[subjectId] || {}) };
+  inputAssessments.forEach((assessment) => {
+    const grade = getGrade(studentId, assessment.id, subjectId);
+    if (grade && target[assessment.id] === undefined) target[assessment.id] = grade;
+  });
+  return target;
 }
 
 function setTarget(studentId, subjectId, target) {
@@ -796,6 +897,7 @@ function subjectText(subject) {
 }
 
 function assessmentSubjects(assessmentId) {
+  if (assessmentId === "kk") return subjects.filter((subject) => subject.hasCoursework);
   return assessmentId === "sem3" ? [...subjects, ...courseworkSubjects] : subjects;
 }
 

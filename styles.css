@@ -362,6 +362,44 @@ select {
   font-style: italic;
 }
 
+.performance-table {
+  min-width: 1200px;
+}
+
+.performance-table th {
+  background: #c9edf7;
+}
+
+.performance-table th:first-child,
+.performance-trend th:first-child {
+  text-align: left;
+  min-width: 180px;
+}
+
+.performance-table td:nth-child(2),
+.performance-table th:nth-child(2),
+.performance-trend td:nth-child(2),
+.performance-trend th:nth-child(2) {
+  text-align: center;
+}
+
+.performance-table small,
+.performance-trend small {
+  display: block;
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+.performance-table tbody th {
+  background: #fff;
+}
+
+.performance-table .subject-divider td {
+  height: 16px;
+  padding: 0;
+  background: #c9edf7;
+}
+
 .pass {
   color: var(--good);
 }
@@ -463,6 +501,28 @@ select {
 
   .data-table {
     min-width: 0;
+  }
+
+  .table-wrap {
+    overflow: visible;
+  }
+
+  .performance-table {
+    font-size: 9px;
+  }
+
+  .performance-table th:first-child {
+    min-width: 0;
+    width: 160px;
+  }
+
+  .performance-table small {
+    font-size: 8px;
+  }
+
+  .performance-table tr,
+  .performance-trend tr {
+    break-inside: avoid;
   }
 
   .data-table th,
