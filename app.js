@@ -378,7 +378,7 @@ function renderPerformance() {
   const distributionRows = [];
   const trendRows = [];
   selectedSubjects.forEach((subject) => {
-    const semesters = assessments.map((assessment) => {
+    const semesters = assessments.map((assessment, semesterIndex) => {
       const points = students.map((student) => getGrade(student.id, assessment.id, subject.id))
         .filter((grade) => gradeToPoint(grade) !== null);
       const counts = Object.fromEntries(grades.map((item) => [item.grade, 0]));
@@ -387,7 +387,10 @@ function renderPerformance() {
       const gp = average(points.map(gradeToPoint));
       const passed = countGrades(counts, grades.slice(0, 7).map((item) => item.grade));
       const cell = (count) => `<td><strong>${attended ? count : "-"}</strong><small>${attended ? `${((count / attended) * 100).toFixed(2)}%` : "-"}</small></td>`;
-      distributionRows.push(`<tr><th scope="row">${escapeHtml(subject.label)}<small>${assessment.label}${subject.code ? ` (${subject.code})` : ""}</small></th>
+      const paperLabel = subject.code
+        ? `${subject.label} (${subject.code}/${semesterIndex + 1})`
+        : `${subject.label} (Sem ${semesterIndex + 1})`;
+      distributionRows.push(`<tr><th scope="row">${escapeHtml(paperLabel)}</th>
         ${grades.slice(0, 7).map((item) => cell(counts[item.grade])).join("")}
         ${cell(passed)}${grades.slice(7).map((item) => cell(counts[item.grade])).join("")}
         <td>${attended}</td><td class="number-cell">${formatPoint(gp)}</td></tr>`);
@@ -508,7 +511,7 @@ function renderSubjectAnalysis() {
     ["Peratus Cemerlang", `${stats.excellentPercent}%`],
     ["Peratus Gagal", `${stats.failPercent}%`],
     ["Lulus Sebahagian", `${stats.partialPercent}%`],
-    ["Purata Subjek", stats.average || "-"],
+    ["Gred Purata (GP)", stats.average || "-"],
     ["Gred Mod", stats.mode || "-"],
   ]);
 
@@ -516,16 +519,28 @@ function renderSubjectAnalysis() {
     .filter((item) => item.grade)
     .map((item) => {
       const count = stats.counts[item.grade] || 0;
-      const contribution = stats.total ? ((count * item.point) / stats.total).toFixed(2) : "0.00";
+      const weightedPoints = (count * item.point).toFixed(2);
       return `
         <tr>
           <td class="number-cell">${item.grade}</td>
           <td>${count}</td>
           <td>${item.point.toFixed(2)}</td>
-          <td>${contribution}</td>
+          <td>${count} &times; ${item.point.toFixed(2)} = ${weightedPoints}</td>
         </tr>`;
     })
     .join("");
+
+  els.subjectRows.innerHTML += `
+    <tr>
+      <th scope="row">Jumlah</th>
+      <td>${stats.graded}</td>
+      <td>-</td>
+      <td class="number-cell">${stats.totalPoint.toFixed(2)}</td>
+    </tr>
+    <tr>
+      <th scope="row" colspan="3">Gred Purata (GP)</th>
+      <td class="number-cell">${stats.graded ? `${stats.totalPoint.toFixed(2)} / ${stats.graded} = ${stats.average}` : "-"}</td>
+    </tr>`;
 
   renderChart(stats.counts);
 }
@@ -737,6 +752,7 @@ function subjectStats(className, assessmentId, subjectId) {
   return {
     total: rows.length,
     graded,
+    totalPoint,
     counts,
     average: graded ? (totalPoint / graded).toFixed(2) : "",
     passPercent: percent(pass, rows.length),
