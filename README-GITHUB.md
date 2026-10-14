@@ -1,18 +1,15 @@
-# Sistem Analisis Markah STPM
+# Sistem STPM SMK Mahsuri - Google Sheet versi 3
 
-Fail dalam folder ini boleh terus dimuat naik ke GitHub Pages.
+Pakej ini menghubungkan laman GitHub Pages kepada Apps Script untuk simpan dan baca semula gred/sasaran tanpa kod akses.
 
-## Cara guna di GitHub
+1. Pasang `Code.gs` dalam projek Apps Script sedia ada. Jalankan `initializeSTPM` dan deploy **New version**.
+2. Muat naik `index.html`, `app.js`, `google-sheet-sync.js`, `styles.css`, `students.csv` dan `lencana-mahsuri.jpeg` ke folder penerbitan GitHub Pages yang sama.
+3. Ikuti `PANDUAN-APPSCRIPT.md` untuk tetapan dan pengesahan simpanan sebenar.
 
-1. Buat repository baharu di GitHub.
-2. Upload semua fail ini ke root repository:
-   - `index.html`
-   - `styles.css`
-   - `app.js`
-   - `students.csv`
-3. Pergi ke **Settings > Pages**.
-4. Pilih **Deploy from a branch**.
-5. Pilih branch `main` dan folder `/root`.
-6. Simpan dan buka link GitHub Pages yang diberi.
+Google Sheet: https://docs.google.com/spreadsheets/d/1GvN54iV0Paq2Fkn2X-MKI3Bm-YsJpzsdsxpwbheM-_Y/edit
 
-Sistem akan cuba ambil senarai murid daripada Google Sheet asal. Jika akses Google Sheet gagal, sistem akan guna `students.csv` sebagai salinan tempatan.
+Laman: https://educreatorsystem.github.io/stpmsmkmahsuri/
+
+URL Apps Script telah dipasang dalam `google-sheet-sync.js`. Nama dan kelas murid masih dimuatkan daripada sumber CSV asal. Rekod gred/sasaran yang berjaya dihantar disimpan dalam `STPM_Gred` dan `STPM_Sasaran`. `localStorage` menyimpan sandaran dan giliran penghantaran semasa sambungan terganggu.
+
+Kod Apps Script dan laman mesti dikemas kini bersama. Pakej ini belum diterbitkan secara langsung.

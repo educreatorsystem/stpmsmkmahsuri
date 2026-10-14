@@ -3,6 +3,8 @@ const CSV_URL =
 
 const STORAGE_KEY = "stpm-grade-records-v1";
 const TARGET_KEY = "stpm-target-records-v1";
+const CLOUD_QUEUE_KEY = "stpm-cloud-outbox-v1";
+let sheetSync;
 
 const assessments = [
   { id: "sem1", label: "STPM SEM 1" },
@@ -61,11 +63,14 @@ const gradeScale = [
   { grade: "F", point: 0.0 },
 ];
 
-const weights = {
-  sem1: 0.2667,
-  sem2: 0.2667,
-  sem3: 0.2667,
-  kk: 0.2,
+const subjectWeights = {
+  geo: { sem1: 32.14, sem2: 32.14, sem3: 14.29, kk: 21.43 },
+  pa: { sem1: 26.67, sem2: 20.00, sem3: 26.67, kk: 26.67 },
+  bm: { sem1: 33.33, sem2: 33.33, sem3: 33.33 },
+  sej: { sem1: 29.00, sem2: 22.00, sem3: 29.00, kk: 20.00 },
+  kmk: { sem1: 33.33, sem2: 33.33, sem3: 33.33 },
+  eko: { sem1: 33.33, sem2: 33.33, sem3: 33.33 },
+  btamil: { sem1: 33.33, sem2: 33.33, sem3: 33.33 },
 };
 
 const memoryStore = {};
@@ -84,13 +89,20 @@ function init() {
   cacheElements();
   wireEvents();
   populateStaticSelects();
-  loadStudents();
+  initializeSheetConnection();
+  connectGoogleSheet();
+  loadStudents().catch(() => {
+    els.dataStatus.textContent = "Senarai murid tidak dapat dimuat. Cuba Muat Semula Murid.";
+  });
 }
 
 function cacheElements() {
   [
     "dataStatus",
     "saveStatus",
+    "cloudStatus",
+    "connectSheetBtn",
+    "refreshSheetBtn",
     "reloadDataBtn",
     "exportBtn",
     "importInput",
@@ -180,9 +192,13 @@ function wireEvents() {
   });
 
   els.reloadDataBtn.addEventListener("click", () => loadStudents(true));
+  els.connectSheetBtn.addEventListener("click", connectGoogleSheet);
+  els.refreshSheetBtn.addEventListener("click", refreshGoogleSheet);
   els.saveInputBtn.addEventListener("click", () => {
     persistRecords();
-    flashSave("Disimpan.");
+    if (sheetSync.connected) sheetSync.flush();
+    else connectGoogleSheet();
+    flashSave("Disimpan dalam peranti.");
   });
   els.exportBtn.addEventListener("click", exportData);
   els.importInput.addEventListener("change", importData);
@@ -435,10 +451,11 @@ function renderInput() {
   els.inputRows.querySelectorAll("select").forEach((select) => {
     select.addEventListener("change", () => {
       setGrade(select.dataset.student, assessmentId, subjectId, select.value);
+      queueSheetChange("grade", select.dataset.student, assessmentId, subjectId, select.value);
       renderAll();
       persistRecords();
       persistTargets();
-      flashSave("Disimpan automatik.");
+      flashSave("Sandaran tempatan disimpan.");
     });
   });
 
@@ -615,6 +632,8 @@ function renderTargets() {
   const subject = findById(subjects, subjectId);
   const rows = studentsByStream(stream.id);
   const hasCoursework = Boolean(subject.hasCoursework);
+  const weights = subjectWeights[subjectId];
+  const weightLabel = (slot) => `<small>${weights[slot].toFixed(2)}%</small>`;
 
   els.targetTitle.textContent = `Sasaran STPM - ${subject.label} (${stream.label})`;
   els.targetHead.innerHTML = `
@@ -622,12 +641,12 @@ function renderTargets() {
       <th>Bil.</th>
       <th>Kelas</th>
       <th>Nama Murid</th>
-      <th>S1</th>
-      <th>UL 1</th>
-      <th>S2</th>
-      <th>UL 2</th>
-      <th>S3</th>
-      ${hasCoursework ? "<th>KK</th>" : ""}
+      <th>S1 ${weightLabel("sem1")}</th>
+      <th>UL 1 ${weightLabel("sem1")}</th>
+      <th>S2 ${weightLabel("sem2")}</th>
+      <th>UL 2 ${weightLabel("sem2")}</th>
+      <th>S3 ${weightLabel("sem3")}</th>
+      ${hasCoursework ? `<th>KK ${weightLabel("kk")}</th>` : ""}
       <th>GP</th>
     </tr>`;
   els.targetRows.innerHTML = rows
@@ -655,9 +674,11 @@ function renderTargets() {
       const current = getTarget(select.dataset.student, subjectId);
       current[select.dataset.slot] = select.value;
       setTarget(select.dataset.student, subjectId, current);
+      queueSheetChange("target", select.dataset.student, select.dataset.slot, subjectId, select.value);
       renderTargets();
+      renderFinalResults();
       persistTargets();
-      flashSave("Sasaran disimpan.");
+      flashSave("Sandaran sasaran disimpan.");
     });
   });
 }
@@ -778,6 +799,7 @@ function fillTargetsFromGrades() {
       if (kkGrade) target.kk = kkGrade;
     }
     setTarget(student.id, subjectId, target);
+    Object.entries(target).forEach(([slot, grade]) => queueSheetChange("target", student.id, slot, subjectId, grade));
   });
   persistTargets();
   renderTargets();
@@ -810,18 +832,19 @@ function classRank(studentId, className, assessmentId) {
 
 function targetGp(target, subjectId) {
   const subject = findById(subjects, subjectId);
+  const weights = subjectWeights[subject.id];
   const s1 = bestPoint(target.sem1, target.ul1);
   const s2 = bestPoint(target.sem2, target.ul2);
   const s3 = gradeToPoint(target.sem3);
   if (s1 === null || s2 === null || s3 === null) return null;
 
   if (!subject.hasCoursework) {
-    return (s1 + s2 + s3) / 3;
+    return (s1 * weights.sem1 + s2 * weights.sem2 + s3 * weights.sem3) / 100;
   }
 
   const kk = gradeToPoint(target.kk);
   if (kk === null) return null;
-  return s1 * weights.sem1 + s2 * weights.sem2 + s3 * weights.sem3 + kk * weights.kk;
+  return (s1 * weights.sem1 + s2 * weights.sem2 + s3 * weights.sem3 + kk * weights.kk) / 100;
 }
 
 function getGrade(studentId, assessmentId, subjectId) {
@@ -951,6 +974,95 @@ function persistRecords() {
   saveJson(STORAGE_KEY, state.records);
 }
 
+function initializeSheetConnection() {
+  sheetSync = new STPMSheetSync({
+    readQueue: () => loadJson(CLOUD_QUEUE_KEY, {}),
+    writeQueue: (value) => saveJson(CLOUD_QUEUE_KEY, value),
+    collectLocal: collectLocalSheetChanges,
+    applySnapshot: applySheetSnapshot,
+    onStatus: (message) => { els.cloudStatus.textContent = message; },
+  });
+  window.setInterval(() => {
+    if (!document.hidden) refreshGoogleSheet();
+  }, 30000);
+  window.addEventListener("online", refreshGoogleSheet);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshGoogleSheet();
+  });
+}
+
+function refreshGoogleSheet() {
+  if (sheetSync.connected) return sheetSync.refresh();
+  return connectGoogleSheet();
+}
+
+async function connectGoogleSheet(event) {
+  event?.preventDefault();
+  if (sheetSync.busy) return;
+  els.connectSheetBtn.disabled = true;
+  els.connectSheetBtn.textContent = "Menyambung...";
+  try {
+    await sheetSync.connect();
+  } catch (error) {
+    els.cloudStatus.textContent = `${error.message || "Sambungan Google Sheet gagal."} Cuba Sambung Semula.`;
+  } finally {
+    els.connectSheetBtn.disabled = false;
+    els.connectSheetBtn.textContent = "Sambung Semula";
+  }
+}
+
+function queueSheetChange(kind, studentId, assessmentId, subjectId, value) {
+  if (assessmentId === "kk" || subjectId.startsWith("kk_")) {
+    assessmentId = "kk";
+    subjectId = subjectId.replace(/^kk_/, "");
+  }
+  sheetSync.enqueue([{ kind, studentId, assessmentId, subjectId, value }]);
+}
+
+function collectLocalSheetChanges() {
+  const changes = new Map();
+  const add = (kind, studentId, assessmentId, subjectId, value) => {
+    if (assessmentId === "kk" || subjectId.startsWith("kk_")) {
+      assessmentId = "kk";
+      subjectId = subjectId.replace(/^kk_/, "");
+      if (kind === "grade") value = getGrade(studentId, "kk", subjectId);
+    }
+    const subject = subjects.find((item) => item.id === subjectId);
+    if (!subject || !inputAssessments.some((item) => item.id === assessmentId)
+      || (assessmentId === "kk" && !subject.hasCoursework)
+      || !gradeScale.some((item) => item.grade === value)) return;
+    const change = { kind, studentId, assessmentId, subjectId, value };
+    changes.set(JSON.stringify([kind, studentId, assessmentId, subjectId]), change);
+  };
+  Object.entries(state.records).forEach(([studentId, records]) => {
+    Object.entries(records).forEach(([assessmentId, entries]) => {
+      Object.entries(entries).forEach(([subjectId, grade]) => add("grade", studentId, assessmentId, subjectId, grade));
+    });
+  });
+  Object.entries(state.targets).forEach(([studentId, targets]) => {
+    Object.entries(targets).forEach(([subjectId, entries]) => {
+      Object.entries(entries).forEach(([slot, grade]) => add("target", studentId, slot, subjectId, grade));
+    });
+  });
+  return [...changes.values()];
+}
+
+function applySheetSnapshot(snapshot, pending) {
+  state.records = snapshot.records || {};
+  state.targets = snapshot.targets || {};
+  pending.forEach((change) => {
+    if (change.kind === "grade") setGrade(change.studentId, change.assessmentId, change.subjectId, change.value);
+    else {
+      const target = getTarget(change.studentId, change.subjectId);
+      target[change.assessmentId] = change.value;
+      setTarget(change.studentId, change.subjectId, target);
+    }
+  });
+  persistRecords();
+  persistTargets();
+  renderAll();
+}
+
 function persistTargets() {
   saveJson(TARGET_KEY, state.targets);
 }
@@ -991,7 +1103,7 @@ function flashSave(message) {
   els.saveStatus.textContent = message;
   window.clearTimeout(flashSave.timer);
   flashSave.timer = window.setTimeout(() => {
-    els.saveStatus.textContent = "Data gred disimpan automatik.";
+    els.saveStatus.textContent = "Sandaran peranti disimpan automatik.";
   }, 1800);
 }
 
@@ -1021,6 +1133,7 @@ function importData(event) {
       state.targets = payload.targets || {};
       persistRecords();
       persistTargets();
+      sheetSync.enqueue(collectLocalSheetChanges());
       renderAll();
       flashSave("Data import selesai.");
     } catch {

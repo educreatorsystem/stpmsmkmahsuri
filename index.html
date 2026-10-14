@@ -3,25 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sistem Analisis Markah STPM</title>
+    <title>Sistem Pengurusan Peperiksaan STPM - SMK Mahsuri</title>
     <meta
       name="description"
       content="Input gred, analisis kelas, analisis subjek, analisis individu dan sasaran STPM."
     />
-    <link rel="stylesheet" href="styles.css" />
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f4c5c'/%3E%3Cpath d='M14 17h36v7H14zM14 29h27v7H14zM14 41h20v7H14z' fill='%23f8d57e'/%3E%3Cpath d='M43 30l5 5 8-11' fill='none' stroke='%23ffffff' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
-    />
+    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="icon" type="image/jpeg" href="lencana-mahsuri.jpeg" />
   </head>
   <body>
     <header class="app-header no-print">
-      <div>
-        <p class="eyebrow">STPM</p>
-        <h1>Sistem Analisis Markah</h1>
+      <div class="school-brand">
+        <img class="school-badge" src="lencana-mahsuri.jpeg" alt="Lencana Sekolah Menengah Kebangsaan Mahsuri" width="80" height="80" />
+        <div class="school-brand-text">
+          <h1>SISTEM PENGURUSAN PEPERIKSAAN STPM</h1>
+          <p class="school-name">SEKOLAH MENENGAH KEBANGSAAN MAHSURI</p>
+        </div>
       </div>
       <div class="header-actions">
+        <button class="ghost" id="connectSheetBtn" type="button">Sambung Semula</button>
+        <button class="ghost" id="refreshSheetBtn" type="button">Muat Semula Data</button>
         <button class="ghost" id="reloadDataBtn" type="button">Muat Semula Murid</button>
         <button class="ghost" id="exportBtn" type="button">Eksport Data</button>
         <label class="ghost file-button">
@@ -44,7 +45,8 @@
 
       <section class="status-strip no-print" id="statusStrip">
         <span id="dataStatus">Memuatkan data murid...</span>
-        <span id="saveStatus">Data gred disimpan automatik.</span>
+        <span id="saveStatus" hidden>Sandaran peranti disimpan automatik.</span>
+        <span id="cloudStatus" role="status" aria-live="polite">Menyemak sambungan Google Sheet...</span>
       </section>
 
       <section class="panel active" id="tab-input">
@@ -263,6 +265,7 @@
       </section>
     </main>
 
-    <script src="app.js"></script>
+    <script src="google-sheet-sync.js?v=3"></script>
+    <script src="app.js?v=3"></script>
   </body>
 </html>
